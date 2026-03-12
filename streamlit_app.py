@@ -18,35 +18,71 @@ st.markdown("""
     /* Dark background */
     .stApp {
         background-color: #0e1117;
+        color: #fafafa;
+    }
+
+    /* Make all text light colored */
+    .stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown li, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        color: #fafafa !important;
+    }
+
+    /* Sidebar text */
+    [data-testid="stSidebar"] {
+        background-color: #1a1a2e;
+        color: #fafafa;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #fafafa !important;
+    }
+
+    /* Labels and text */
+    label, .stTextArea label, .stTextInput label {
+        color: #fafafa !important;
     }
 
     /* Smaller font for statistics */
     .small-font {
         font-size: 14px !important;
+        color: #fafafa !important;
     }
 
     .stats-header {
         font-size: 16px !important;
         font-weight: bold;
         margin-bottom: 8px;
+        color: #fafafa !important;
     }
 
     .stats-item {
         font-size: 13px !important;
         margin: 4px 0;
+        color: #fafafa !important;
     }
 
-    /* Adjust metric font sizes */
+    /* Adjust metric font sizes and colors */
     [data-testid="stMetricValue"] {
         font-size: 18px !important;
+        color: #fafafa !important;
     }
 
     [data-testid="stMetricLabel"] {
         font-size: 12px !important;
+        color: #b0b0b0 !important;
     }
 
     [data-testid="stMetricDelta"] {
         font-size: 11px !important;
+    }
+
+    /* Headers */
+    h1, h2, h3, h4, h5, h6 {
+        color: #fafafa !important;
+    }
+
+    /* Expander */
+    .streamlit-expanderHeader {
+        color: #fafafa !important;
     }
 </style>
 """, unsafe_allow_html=True)
