@@ -12,6 +12,45 @@ st.set_page_config(
     layout="wide"
 )
 
+# Custom CSS for dark theme and smaller fonts
+st.markdown("""
+<style>
+    /* Dark background */
+    .stApp {
+        background-color: #0e1117;
+    }
+
+    /* Smaller font for statistics */
+    .small-font {
+        font-size: 14px !important;
+    }
+
+    .stats-header {
+        font-size: 16px !important;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .stats-item {
+        font-size: 13px !important;
+        margin: 4px 0;
+    }
+
+    /* Adjust metric font sizes */
+    [data-testid="stMetricValue"] {
+        font-size: 18px !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        font-size: 12px !important;
+    }
+
+    [data-testid="stMetricDelta"] {
+        font-size: 11px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Model configuration
 MODEL_NAME = "fakespot-ai/roberta-base-ai-text-detection-v1"
 
@@ -161,9 +200,8 @@ Anyway, thinking about trying peppers next year. Or maybe herbs? Basil would be 
 def main():
     st.title("🔍 AI Text Detection")
     st.markdown("""
-    This tool uses the **fakespot-ai/roberta-base-ai-text-detection-v1** model to detect whether text is
-    AI-generated or human-written.
-    """)
+    <p class="small-font">This tool uses the <strong>fakespot-ai/roberta-base-ai-text-detection-v1</strong> model to detect whether text is AI-generated or human-written.</p>
+    """, unsafe_allow_html=True)
 
     # Load model
     with st.spinner("Loading model..."):
@@ -179,13 +217,14 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.header("About")
     st.sidebar.markdown("""
-    **Model:** RoBERTa-base fine-tuned for AI text detection
-
-    **Metrics Explained:**
-    - **Burstiness:** Measures sentence length variation (0-1). Low = uniform (AI-like), High = varied (human-like)
-    - **Perplexity Proxy:** Model confidence metric
-    - **Vocabulary Richness:** Ratio of unique words to total words
-    """)
+    <p class="small-font">
+    <strong>Model:</strong> RoBERTa-base fine-tuned for AI text detection<br><br>
+    <strong>Metrics Explained:</strong><br>
+    • <strong>Burstiness:</strong> Measures sentence length variation (0-1). Low = uniform (AI-like), High = varied (human-like)<br>
+    • <strong>Perplexity Proxy:</strong> Model confidence metric<br>
+    • <strong>Vocabulary Richness:</strong> Ratio of unique words to total words
+    </p>
+    """, unsafe_allow_html=True)
 
     # Initialize session state
     if 'input_text' not in st.session_state:
@@ -199,7 +238,7 @@ def main():
         input_text = st.text_area(
             "Enter text to analyze (can be multiple paragraphs):",
             value=st.session_state.input_text,
-            height=400,
+            height=500,
             placeholder="Paste your text here..."
         )
 
@@ -217,12 +256,12 @@ def main():
                 is_ai = "ai" in result["predicted_label"].lower() or "machine" in result["predicted_label"].lower() or "fake" in result["predicted_label"].lower()
 
                 if is_ai:
-                    st.error(f"### 🤖 AI-Generated Text")
+                    st.error("### 🤖 AI-Generated Text")
                 else:
-                    st.success(f"### ✍️ Human-Written Text")
+                    st.success("### ✍️ Human-Written Text")
 
-                st.markdown(f"**Prediction:** {result['predicted_label']}")
-                st.markdown(f"**Confidence:** {result['confidence']:.2f}%")
+                st.markdown(f"<p class='small-font'><strong>Prediction:</strong> {result['predicted_label']}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='small-font'><strong>Confidence:</strong> {result['confidence']:.2f}%</p>", unsafe_allow_html=True)
 
                 # Progress bar for confidence
                 st.progress(float(result['confidence']) / 100)
@@ -230,65 +269,58 @@ def main():
                 st.markdown("---")
 
                 # Probability breakdown
-                st.markdown("#### Probability Breakdown")
+                st.markdown("<p class='stats-header'>Probability Breakdown</p>", unsafe_allow_html=True)
                 for idx, prob in enumerate(result['probs']):
                     label = result['id2label'].get(idx, f"Class {idx}")
-                    st.markdown(f"**{label}:** {prob*100:.2f}%")
+                    st.markdown(f"<p class='stats-item'><strong>{label}:</strong> {prob*100:.2f}%</p>", unsafe_allow_html=True)
                     st.progress(float(prob))
+
+                st.markdown("---")
+
+                # Statistics section - now in the right column
+                st.markdown("<p class='stats-header'>📊 Text Statistics & AI Detection Metrics</p>", unsafe_allow_html=True)
+
+                # Basic Statistics
+                st.markdown("<p class='stats-item'><strong>Basic Statistics:</strong></p>", unsafe_allow_html=True)
+                stat_col1, stat_col2, stat_col3 = st.columns(3)
+                with stat_col1:
+                    st.metric("Words", result['stats']['word_count'])
+                with stat_col2:
+                    st.metric("Sentences", result['stats']['sentence_count'])
+                with stat_col3:
+                    st.metric("Avg Length", f"{result['stats']['avg_sentence_length']}")
+
+                # AI Detection Metrics
+                st.markdown("<p class='stats-item'><strong>AI Detection Metrics:</strong></p>", unsafe_allow_html=True)
+                metric_col1, metric_col2, metric_col3 = st.columns(3)
+
+                burstiness = result['stats']['burstiness']
+                burstiness_label = "Low (AI-like)" if burstiness < 0.4 else "Medium" if burstiness < 0.6 else "High (Human)"
+
+                perplexity = result['perplexity_proxy']
+                perplexity_label = "Low" if perplexity < 1.5 else "Medium" if perplexity < 2.0 else "High"
+
+                vocab_richness = result['stats']['vocabulary_richness']
+
+                with metric_col1:
+                    st.metric("Burstiness", f"{burstiness:.3f}", burstiness_label)
+                with metric_col2:
+                    st.metric("Perplexity", f"{perplexity:.3f}", perplexity_label)
+                with metric_col3:
+                    st.metric("Vocab Rich.", f"{vocab_richness:.1%}")
+
+                # Interpretation guide
+                with st.expander("ℹ️ Understanding the Metrics"):
+                    st.markdown("""
+                    <p class="small-font">
+                    <strong>Burstiness (0-1 scale):</strong> Measures variation in sentence lengths. Low (<0.4) = uniform (AI-like), High (>0.6) = varied (human-like)<br><br>
+                    <strong>Perplexity Proxy:</strong> Based on model's prediction confidence. Lower = more confident.<br><br>
+                    <strong>Vocabulary Richness:</strong> Ratio of unique words to total words. Higher = more diverse vocabulary.
+                    </p>
+                    """, unsafe_allow_html=True)
 
         elif analyze_button and not input_text:
             st.warning("Please enter some text to analyze.")
-
-    # Statistics section (shown below when there are results)
-    if analyze_button and input_text:
-        result = analyze_text(input_text, model, tokenizer)
-        if result:
-            st.markdown("---")
-            st.subheader("📊 Text Statistics & AI Detection Metrics")
-
-            col_stats1, col_stats2, col_stats3 = st.columns(3)
-
-            with col_stats1:
-                st.markdown("#### Basic Statistics")
-                st.metric("Word Count", result['stats']['word_count'])
-                st.metric("Sentence Count", result['stats']['sentence_count'])
-                st.metric("Avg. Sentence Length", f"{result['stats']['avg_sentence_length']} words")
-
-            with col_stats2:
-                st.markdown("#### AI Detection Metrics")
-                burstiness = result['stats']['burstiness']
-                burstiness_label = "Low (AI-like)" if burstiness < 0.4 else "Medium" if burstiness < 0.6 else "High (Human-like)"
-                st.metric("Burstiness", f"{burstiness:.4f}", burstiness_label)
-
-                perplexity = result['perplexity_proxy']
-                perplexity_label = "Low uncertainty" if perplexity < 1.5 else "Medium" if perplexity < 2.0 else "High uncertainty"
-                st.metric("Perplexity Proxy", f"{perplexity:.4f}", perplexity_label)
-
-            with col_stats3:
-                st.markdown("#### Vocabulary Analysis")
-                vocab_richness = result['stats']['vocabulary_richness']
-                st.metric("Vocabulary Richness (TTR)", f"{vocab_richness:.2%}")
-
-            # Interpretation guide
-            with st.expander("ℹ️ Understanding the Metrics"):
-                st.markdown("""
-                ### Burstiness (0-1 scale)
-                - Measures variation in sentence lengths
-                - **Low burstiness (<0.4):** More uniform sentence structure, often associated with AI text
-                - **High burstiness (>0.6):** More varied sentence structure, often associated with human writing
-
-                ### Perplexity Proxy
-                - Based on model's prediction confidence
-                - **Lower values:** Model is more confident in its prediction
-                - **Higher values:** More uncertainty in the prediction
-
-                ### Vocabulary Richness (Type-Token Ratio)
-                - Ratio of unique words to total words
-                - **Higher values:** More diverse vocabulary
-                - Human text often shows more vocabulary variation
-
-                *Note: These metrics are heuristic approximations. The primary AI detection is performed by the RoBERTa model.*
-                """)
 
 
 if __name__ == "__main__":
