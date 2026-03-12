@@ -225,7 +225,7 @@ def main():
                 st.markdown(f"**Confidence:** {result['confidence']:.2f}%")
 
                 # Progress bar for confidence
-                st.progress(result['confidence'] / 100)
+                st.progress(float(result['confidence']) / 100)
 
                 st.markdown("---")
 
