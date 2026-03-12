@@ -16,11 +16,15 @@ A web application for detecting AI-generated text using the **fakespot-ai/robert
   - **Perplexity Proxy**: Based on model prediction confidence
 - **Sample Texts**: Includes pre-loaded AI and human text samples for testing
 
+## Live Demo
+
+Try the app here: [Streamlit Cloud App](https://ai-text-detection.streamlit.app) *(update with your actual URL after deployment)*
+
 ## Installation
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ai-text-detection.git
+   git clone https://github.com/mzhao577/ai-text-detection.git
    cd ai-text-detection
    ```
 
@@ -30,18 +34,36 @@ A web application for detecting AI-generated text using the **fakespot-ai/robert
    ```
 
 3. Run the application:
+
+   **Option 1: Streamlit (Recommended for deployment)**
+   ```bash
+   streamlit run streamlit_app.py
+   ```
+   Then open `http://localhost:8501`
+
+   **Option 2: Gradio**
    ```bash
    python app.py
    ```
+   Then open `http://localhost:7860`
 
-4. Open your browser and navigate to `http://localhost:7860`
+## Deploy to Streamlit Cloud
+
+1. Fork or push this repository to your GitHub account
+2. Go to [Streamlit Cloud](https://share.streamlit.io/)
+3. Click "New app"
+4. Select your repository and branch
+5. Set the main file path to `streamlit_app.py`
+6. Click "Deploy"
+
+The app will be publicly available at `https://your-app-name.streamlit.app`
 
 ## Requirements
 
 - Python 3.8+
 - PyTorch
 - Transformers
-- Gradio
+- Streamlit or Gradio
 
 ## Model
 

@@ -52,3 +52,6 @@ Thumbs.db
 
 # Gradio
 flagged/
+
+# Streamlit
+.streamlit/secrets.toml
