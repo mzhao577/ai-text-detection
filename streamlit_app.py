@@ -87,15 +87,27 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Model configuration
-MODEL_NAME = "fakespot-ai/roberta-base-ai-text-detection-v1"
+# Model configurations
+MODELS = {
+    "Fakespot RoBERTa": {
+        "name": "fakespot-ai/roberta-base-ai-text-detection-v1",
+        "description": "Fine-tuned for AI text detection by Fakespot",
+        "labels": {0: "Human", 1: "AI-Generated"}
+    },
+    "OpenAI RoBERTa": {
+        "name": "openai-community/roberta-base-openai-detector",
+        "description": "OpenAI's GPT-2 output detector",
+        "labels": {0: "Human", 1: "AI-Generated"}
+    }
+}
 
 
 @st.cache_resource
-def load_model():
-    """Load model and tokenizer with caching."""
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+def load_model(model_key):
+    """Load model and tokenizer with caching based on selected model."""
+    model_info = MODELS[model_key]
+    tokenizer = AutoTokenizer.from_pretrained(model_info["name"])
+    model = AutoModelForSequenceClassification.from_pretrained(model_info["name"])
     model.eval()
     return tokenizer, model
 
@@ -235,13 +247,33 @@ Anyway, thinking about trying peppers next year. Or maybe herbs? Basil would be 
 # Main app
 def main():
     st.title("🔍 AI Text Detection")
-    st.markdown("""
-    <p class="small-font">This tool uses the <strong>fakespot-ai/roberta-base-ai-text-detection-v1</strong> model to detect whether text is AI-generated or human-written.</p>
+
+    # Model selection in sidebar (before other sidebar elements)
+    st.sidebar.header("Model Selection")
+    selected_model = st.sidebar.radio(
+        "Choose detection model:",
+        options=list(MODELS.keys()),
+        index=0,
+        help="Select which RoBERTa model to use for detection"
+    )
+
+    # Show model info
+    model_info = MODELS[selected_model]
+    st.sidebar.markdown(f"""
+    <p class="small-font">
+    <strong>Model:</strong> {model_info['name']}<br>
+    <em>{model_info['description']}</em>
+    </p>
+    """, unsafe_allow_html=True)
+    st.sidebar.markdown("---")
+
+    st.markdown(f"""
+    <p class="small-font">Using <strong>{selected_model}</strong> model to detect whether text is AI-generated or human-written.</p>
     """, unsafe_allow_html=True)
 
-    # Load model
-    with st.spinner("Loading model..."):
-        tokenizer, model = load_model()
+    # Load model based on selection
+    with st.spinner(f"Loading {selected_model} model..."):
+        tokenizer, model = load_model(selected_model)
 
     # Sidebar with sample texts
     st.sidebar.header("Sample Texts")
@@ -254,7 +286,9 @@ def main():
     st.sidebar.header("About")
     st.sidebar.markdown("""
     <p class="small-font">
-    <strong>Model:</strong> RoBERTa-base fine-tuned for AI text detection<br><br>
+    <strong>Available Models:</strong><br>
+    • <strong>Fakespot RoBERTa:</strong> Fine-tuned for general AI text detection<br>
+    • <strong>OpenAI RoBERTa:</strong> Trained to detect GPT-2 generated text<br><br>
     <strong>Metrics Explained:</strong><br>
     • <strong>Burstiness:</strong> Measures sentence length variation (0-1). Low = uniform (AI-like), High = varied (human-like)<br>
     • <strong>Perplexity Proxy:</strong> Model confidence metric<br>
@@ -288,8 +322,10 @@ def main():
                 result = analyze_text(input_text, model, tokenizer)
 
             if result:
-                # Main result
-                is_ai = "ai" in result["predicted_label"].lower() or "machine" in result["predicted_label"].lower() or "fake" in result["predicted_label"].lower()
+                # Main result - handle different label formats from different models
+                # Fakespot: "human" vs "machine", OpenAI: "Real" vs "Fake"
+                label_lower = result["predicted_label"].lower()
+                is_ai = any(term in label_lower for term in ["ai", "machine", "fake", "generated"])
 
                 if is_ai:
                     st.error("### 🤖 AI-Generated Text")
