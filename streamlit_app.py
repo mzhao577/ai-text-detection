@@ -93,12 +93,13 @@ MODELS = {
         "name": "fakespot-ai/roberta-base-ai-text-detection-v1",
         "description": "Fine-tuned for AI text detection by Fakespot",
         "labels": {0: "Human", 1: "AI-Generated"}
-    },
-    "OpenAI RoBERTa": {
-        "name": "openai-community/roberta-base-openai-detector",
-        "description": "OpenAI's GPT-2 output detector",
-        "labels": {0: "Human", 1: "AI-Generated"}
     }
+    # OpenAI RoBERTa disabled to reduce storage usage on Streamlit Cloud
+    # "OpenAI RoBERTa": {
+    #     "name": "openai-community/roberta-base-openai-detector",
+    #     "description": "OpenAI's GPT-2 output detector",
+    #     "labels": {0: "Human", 1: "AI-Generated"}
+    # }
 }
 
 
@@ -286,9 +287,8 @@ def main():
     st.sidebar.header("About")
     st.sidebar.markdown("""
     <p class="small-font">
-    <strong>Available Models:</strong><br>
-    • <strong>Fakespot RoBERTa:</strong> Fine-tuned for general AI text detection<br>
-    • <strong>OpenAI RoBERTa:</strong> Trained to detect GPT-2 generated text<br><br>
+    <strong>Model:</strong><br>
+    • <strong>Fakespot RoBERTa:</strong> Fine-tuned for general AI text detection<br><br>
     <strong>Metrics Explained:</strong><br>
     • <strong>Burstiness:</strong> Measures sentence length variation (0-1). Low = uniform (AI-like), High = varied (human-like)<br>
     • <strong>Perplexity Proxy:</strong> Model confidence metric<br>
