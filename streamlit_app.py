@@ -84,6 +84,40 @@ st.markdown("""
     .streamlit-expanderHeader {
         color: #fafafa !important;
     }
+
+    /* Segment highlighting for AI detection */
+    .ai-segment {
+        background-color: rgba(255, 99, 99, 0.3);
+        border-left: 3px solid #ff6b6b;
+        padding: 8px 12px;
+        margin: 4px 0;
+        border-radius: 4px;
+    }
+
+    .human-segment {
+        background-color: rgba(99, 255, 132, 0.2);
+        border-left: 3px solid #63ff84;
+        padding: 8px 12px;
+        margin: 4px 0;
+        border-radius: 4px;
+    }
+
+    .segment-label {
+        font-size: 11px;
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .segment-text {
+        font-size: 13px;
+        color: #fafafa;
+    }
+
+    .segment-confidence {
+        font-size: 11px;
+        color: #b0b0b0;
+        margin-top: 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -227,6 +261,85 @@ def analyze_text(text, model, tokenizer):
         "stats": stats,
         "perplexity_proxy": perplexity_proxy
     }
+
+
+def split_into_chunks(text, target_words=200):
+    """Split text into chunks of approximately target_words each, respecting paragraph boundaries."""
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+
+    if not paragraphs:
+        paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+
+    chunks = []
+    current_chunk = []
+    current_word_count = 0
+
+    for para in paragraphs:
+        para_words = len(para.split())
+
+        if current_word_count + para_words <= target_words * 1.3:
+            current_chunk.append(para)
+            current_word_count += para_words
+        else:
+            if current_chunk:
+                chunks.append('\n\n'.join(current_chunk))
+            current_chunk = [para]
+            current_word_count = para_words
+
+    if current_chunk:
+        chunks.append('\n\n'.join(current_chunk))
+
+    return chunks
+
+
+def analyze_segments(text, model, tokenizer, min_words=200):
+    """Analyze text segment by segment. Only performs segmentation if text has >= min_words."""
+    total_words = len(text.split())
+
+    if total_words < min_words:
+        return None
+
+    chunks = split_into_chunks(text, target_words=200)
+
+    if len(chunks) <= 1:
+        return None
+
+    results = []
+    id2label = model.config.id2label if hasattr(model.config, 'id2label') else {0: "Human", 1: "AI"}
+
+    for i, chunk in enumerate(chunks):
+        chunk_words = len(chunk.split())
+
+        inputs = tokenizer(
+            chunk,
+            return_tensors="pt",
+            truncation=True,
+            max_length=512,
+            padding=True
+        )
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+
+        probs = softmax(logits.numpy()[0])
+        predicted_class = np.argmax(probs)
+        predicted_label = id2label.get(predicted_class, f"Class {predicted_class}")
+        confidence = probs[predicted_class] * 100
+
+        label_lower = predicted_label.lower()
+        is_ai = any(term in label_lower for term in ["ai", "machine", "fake", "generated"])
+
+        results.append({
+            "chunk_num": i + 1,
+            "text": chunk,
+            "word_count": chunk_words,
+            "predicted_label": predicted_label,
+            "confidence": confidence,
+            "is_ai": is_ai
+        })
+
+    return results
 
 
 # Sample texts
@@ -390,6 +503,34 @@ def main():
                     <strong>Vocabulary Richness:</strong> Ratio of unique words to total words. Higher = more diverse vocabulary.
                     </p>
                     """, unsafe_allow_html=True)
+
+                # Segment-level analysis (only if 200+ words)
+                st.markdown("---")
+                segment_results = analyze_segments(input_text, model, tokenizer, min_words=200)
+
+                if segment_results:
+                    st.markdown("<p class='stats-header'>📝 Segment-by-Segment Analysis</p>", unsafe_allow_html=True)
+                    st.markdown("<p class='small-font'><em>Text split into ~200 word chunks for detailed analysis</em></p>", unsafe_allow_html=True)
+
+                    ai_count = sum(1 for s in segment_results if s['is_ai'])
+                    human_count = len(segment_results) - ai_count
+                    st.markdown(f"<p class='small-font'><strong>Summary:</strong> {ai_count} AI-detected segments, {human_count} human-detected segments</p>", unsafe_allow_html=True)
+
+                    for seg in segment_results:
+                        css_class = "ai-segment" if seg['is_ai'] else "human-segment"
+                        label_icon = "🤖 AI" if seg['is_ai'] else "✍️ Human"
+                        preview = seg['text'][:300] + "..." if len(seg['text']) > 300 else seg['text']
+                        preview = preview.replace('\n', ' ')
+
+                        st.markdown(f"""
+                        <div class="{css_class}">
+                            <div class="segment-label">Segment {seg['chunk_num']} - {label_icon} ({seg['confidence']:.1f}% confidence)</div>
+                            <div class="segment-text">{preview}</div>
+                            <div class="segment-confidence">{seg['word_count']} words</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.markdown("<p class='small-font'><em>Segment analysis requires 200+ words with multiple paragraphs.</em></p>", unsafe_allow_html=True)
 
         elif analyze_button and not input_text:
             st.warning("Please enter some text to analyze.")
