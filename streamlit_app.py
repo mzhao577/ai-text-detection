@@ -458,6 +458,115 @@ def render_highlighted_text(sentence_results):
     return ' '.join(html_parts)
 
 
+# Color palette for duplicate groups
+DUPLICATE_COLORS = [
+    ("Orange", "rgba(255, 165, 0, 0.4)"),
+    ("Purple", "rgba(138, 43, 226, 0.4)"),
+    ("Cyan", "rgba(0, 191, 255, 0.4)"),
+    ("Yellow", "rgba(255, 255, 0, 0.4)"),
+    ("Pink", "rgba(255, 105, 180, 0.4)"),
+    ("Lime", "rgba(50, 205, 50, 0.4)"),
+]
+
+
+def detect_duplicates(text):
+    """Detect exact duplicate paragraphs in the text."""
+    # Split into paragraphs (by newlines)
+    paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+
+    if not paragraphs:
+        return None
+
+    # Track paragraphs by their normalized content
+    # Key: normalized text, Value: list of (index, original_text)
+    paragraph_map = {}
+
+    for i, para in enumerate(paragraphs):
+        # Normalize: strip whitespace and convert to lowercase for comparison
+        normalized = ' '.join(para.split()).lower()
+
+        if normalized not in paragraph_map:
+            paragraph_map[normalized] = []
+        paragraph_map[normalized].append({
+            'index': i + 1,  # 1-based index
+            'text': para
+        })
+
+    # Find duplicate groups (groups with more than one paragraph)
+    duplicate_groups = []
+    for normalized, paras in paragraph_map.items():
+        if len(paras) > 1:
+            duplicate_groups.append(paras)
+
+    # Calculate duplication percentage
+    total_chars = sum(len(p) for p in paragraphs)
+    duplicated_chars = 0
+    for group in duplicate_groups:
+        # Count all but the first occurrence as duplicated
+        for para in group[1:]:
+            duplicated_chars += len(para['text'])
+
+    duplication_percentage = (duplicated_chars / total_chars * 100) if total_chars > 0 else 0
+
+    # Create paragraph info list with duplicate group assignments
+    paragraphs_with_info = []
+    for i, para in enumerate(paragraphs):
+        normalized = ' '.join(para.split()).lower()
+
+        # Find which duplicate group this paragraph belongs to
+        group_index = None
+        for gi, group in enumerate(duplicate_groups):
+            if any(p['index'] == i + 1 for p in group):
+                group_index = gi
+                break
+
+        paragraphs_with_info.append({
+            'index': i + 1,
+            'text': para,
+            'duplicate_group': group_index  # None if not a duplicate
+        })
+
+    return {
+        'paragraphs': paragraphs_with_info,
+        'duplicate_groups': duplicate_groups,
+        'duplication_percentage': duplication_percentage,
+        'total_paragraphs': len(paragraphs)
+    }
+
+
+def render_duplicate_highlighted_text(duplicate_result):
+    """Generate HTML with color-coded duplicate paragraphs."""
+    if not duplicate_result:
+        return ""
+
+    html_parts = []
+
+    for para in duplicate_result['paragraphs']:
+        # Escape HTML in text
+        text = para['text'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+        if para['duplicate_group'] is not None:
+            # This is a duplicate - apply color from the group
+            color_index = para['duplicate_group'] % len(DUPLICATE_COLORS)
+            color_name, color_rgba = DUPLICATE_COLORS[color_index]
+
+            html_parts.append(
+                f'<div style="background-color: {color_rgba}; padding: 8px 12px; margin: 4px 0; '
+                f'border-radius: 4px; border-left: 3px solid {color_rgba.replace("0.4", "1.0")};" '
+                f'title="Duplicate Group {para["duplicate_group"] + 1} ({color_name})">'
+                f'<span style="font-size: 11px; color: #888;">P{para["index"]}</span> {text}</div>'
+            )
+        else:
+            # Not a duplicate - no highlighting
+            html_parts.append(
+                f'<div style="padding: 8px 12px; margin: 4px 0; border-radius: 4px; '
+                f'background-color: rgba(255,255,255,0.05);">'
+                f'<span style="font-size: 11px; color: #888;">P{para["index"]}</span> {text}</div>'
+            )
+
+    return '\n'.join(html_parts)
+
+
 # Sample texts
 AI_SAMPLE = """Artificial intelligence has revolutionized numerous industries in recent years. The technology enables machines to learn from experience, adjust to new inputs, and perform human-like tasks. From healthcare to finance, AI applications are transforming how businesses operate and deliver value to customers.
 
@@ -703,6 +812,62 @@ def main():
 
                             preview = sent['text'][:100] + "..." if len(sent['text']) > 100 else sent['text']
                             st.markdown(f"<p class='small-font'>{icon} <strong>S{i}</strong> [{label}, {conf}]: {preview}</p>", unsafe_allow_html=True)
+
+                # Duplicate Detection
+                st.markdown("---")
+                st.markdown("<p class='stats-header'>📋 Duplicate Detection</p>", unsafe_allow_html=True)
+
+                duplicate_result = detect_duplicates(input_text)
+
+                if duplicate_result and duplicate_result['duplicate_groups']:
+                    # Show duplication percentage
+                    st.markdown(f"""
+                    <p class='small-font'>
+                    <strong>Duplication:</strong> {duplicate_result['duplication_percentage']:.1f}% of content is duplicated
+                    ({len(duplicate_result['duplicate_groups'])} duplicate group(s) found)
+                    </p>
+                    """, unsafe_allow_html=True)
+
+                    # Legend for duplicate colors
+                    legend_items = []
+                    for i, group in enumerate(duplicate_result['duplicate_groups']):
+                        if i < len(DUPLICATE_COLORS):
+                            color_name, color_rgba = DUPLICATE_COLORS[i]
+                            legend_items.append(
+                                f'<span style="background-color: {color_rgba}; padding: 2px 6px; border-radius: 3px; margin-right: 8px;">Group {i+1} ({color_name})</span>'
+                            )
+
+                    st.markdown(f"""
+                    <p class='small-font'>
+                    <strong>Legend:</strong> {''.join(legend_items)}
+                    </p>
+                    """, unsafe_allow_html=True)
+
+                    # Render highlighted text
+                    duplicate_html = render_duplicate_highlighted_text(duplicate_result)
+                    st.markdown(f"""
+                    <div style="background-color: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; margin: 10px 0;">
+                    {duplicate_html}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Show duplicate groups details
+                    with st.expander("📋 View Duplicate Groups"):
+                        for i, group in enumerate(duplicate_result['duplicate_groups']):
+                            color_name, color_rgba = DUPLICATE_COLORS[i % len(DUPLICATE_COLORS)]
+                            para_indices = [str(p['index']) for p in group]
+                            st.markdown(f"""
+                            <p class='small-font'>
+                            <span style="background-color: {color_rgba}; padding: 2px 6px; border-radius: 3px;">Group {i+1}</span>
+                            Paragraphs {', '.join(para_indices)} are identical
+                            </p>
+                            """, unsafe_allow_html=True)
+
+                            # Show the duplicated text (preview)
+                            preview = group[0]['text'][:150] + "..." if len(group[0]['text']) > 150 else group[0]['text']
+                            st.markdown(f"<p class='small-font' style='color: #888; margin-left: 20px;'><em>\"{preview}\"</em></p>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<p class='small-font'>No duplicate paragraphs detected.</p>", unsafe_allow_html=True)
 
         elif analyze_button and not input_text:
             st.warning("Please enter some text to analyze.")
