@@ -25,7 +25,7 @@ A web application for detecting AI-generated text using the **fakespot-ai/robert
 
 ## Live Demo
 
-Try the app here: [https://ai-text-detection.streamlit.app](https://ai-text-detection.streamlit.app)
+Try the app here: [https://ai-text-detection-mzhao577.streamlit.app/](https://ai-text-detection-mzhao577.streamlit.app/)
 
 ## Installation
 
