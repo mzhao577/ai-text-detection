@@ -342,6 +342,122 @@ def analyze_segments(text, model, tokenizer, min_words=200):
     return results
 
 
+def analyze_sentences(text, model, tokenizer, min_words=5):
+    """Analyze each sentence individually for AI detection."""
+    # Split text into sentences
+    sentences = re.split(r'([.!?]+)', text)
+
+    # Reconstruct sentences with their punctuation
+    reconstructed = []
+    for i in range(0, len(sentences) - 1, 2):
+        sentence = sentences[i].strip()
+        punct = sentences[i + 1] if i + 1 < len(sentences) else ''
+        if sentence:
+            reconstructed.append(sentence + punct)
+    # Handle last sentence if no punctuation
+    if len(sentences) % 2 == 1 and sentences[-1].strip():
+        reconstructed.append(sentences[-1].strip())
+
+    if not reconstructed:
+        return None
+
+    id2label = model.config.id2label if hasattr(model.config, 'id2label') else {0: "Human", 1: "AI"}
+
+    results = []
+    for sentence in reconstructed:
+        word_count = len(sentence.split())
+
+        if word_count < min_words:
+            # Too short for reliable prediction - mark as neutral
+            results.append({
+                'text': sentence,
+                'is_short': True,
+                'confidence': 0,
+                'is_ai': None,
+                'ai_prob': 0,
+                'human_prob': 0
+            })
+        else:
+            # Run prediction
+            inputs = tokenizer(
+                sentence,
+                return_tensors="pt",
+                truncation=True,
+                max_length=512,
+                padding=True
+            )
+
+            with torch.no_grad():
+                outputs = model(**inputs)
+                probs = softmax(outputs.logits.numpy()[0])
+
+            # Determine AI vs Human based on label
+            ai_idx = None
+            human_idx = None
+            for idx, label in id2label.items():
+                label_lower = label.lower()
+                if any(term in label_lower for term in ["ai", "machine", "fake", "generated"]):
+                    ai_idx = idx
+                else:
+                    human_idx = idx
+
+            # Default if labels not recognized
+            if ai_idx is None:
+                ai_idx = 1
+            if human_idx is None:
+                human_idx = 0
+
+            ai_prob = float(probs[ai_idx])
+            human_prob = float(probs[human_idx])
+            is_ai = ai_prob > human_prob
+            confidence = ai_prob if is_ai else human_prob
+
+            results.append({
+                'text': sentence,
+                'is_short': False,
+                'confidence': confidence,
+                'is_ai': is_ai,
+                'ai_prob': ai_prob,
+                'human_prob': human_prob
+            })
+
+    return results
+
+
+def render_highlighted_text(sentence_results):
+    """Generate HTML with color-coded sentences based on AI/Human classification."""
+    html_parts = []
+
+    for result in sentence_results:
+        # Escape HTML in text
+        text = result['text'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+        if result['is_short']:
+            # Neutral styling for short sentences (gray)
+            html_parts.append(
+                f'<span style="background-color: rgba(128,128,128,0.2); padding: 2px 4px; border-radius: 3px;" '
+                f'title="Too short to analyze ({len(result["text"].split())} words)">{text}</span>'
+            )
+        elif result['is_ai']:
+            # Red for AI - opacity based on confidence (0.5-1.0 maps to 0.2-0.7)
+            opacity = 0.2 + (result['confidence'] - 0.5) * 1.0
+            opacity = max(0.2, min(0.7, opacity))  # Clamp between 0.2 and 0.7
+            html_parts.append(
+                f'<span style="background-color: rgba(255,99,99,{opacity:.2f}); padding: 2px 4px; border-radius: 3px;" '
+                f'title="AI-Generated: {result["confidence"]*100:.1f}% confidence">{text}</span>'
+            )
+        else:
+            # Green for Human - opacity based on confidence
+            opacity = 0.2 + (result['confidence'] - 0.5) * 1.0
+            opacity = max(0.2, min(0.7, opacity))  # Clamp between 0.2 and 0.7
+            html_parts.append(
+                f'<span style="background-color: rgba(99,255,132,{opacity:.2f}); padding: 2px 4px; border-radius: 3px;" '
+                f'title="Human-Written: {result["confidence"]*100:.1f}% confidence">{text}</span>'
+            )
+
+    return ' '.join(html_parts)
+
+
 # Sample texts
 AI_SAMPLE = """Artificial intelligence has revolutionized numerous industries in recent years. The technology enables machines to learn from experience, adjust to new inputs, and perform human-like tasks. From healthcare to finance, AI applications are transforming how businesses operate and deliver value to customers.
 
@@ -531,6 +647,62 @@ def main():
                         """, unsafe_allow_html=True)
                 else:
                     st.markdown("<p class='small-font'><em>Segment analysis requires 200+ words with multiple paragraphs.</em></p>", unsafe_allow_html=True)
+
+                # Sentence-by-sentence analysis
+                st.markdown("---")
+                st.markdown("<p class='stats-header'>🔬 Sentence-by-Sentence Analysis</p>", unsafe_allow_html=True)
+
+                sentence_results = analyze_sentences(input_text, model, tokenizer, min_words=5)
+
+                if sentence_results:
+                    # Legend
+                    st.markdown("""
+                    <p class='small-font'>
+                    <strong>Legend:</strong>
+                    <span style="background-color: rgba(99,255,132,0.5); padding: 2px 6px; border-radius: 3px;">Human-written</span>
+                    <span style="background-color: rgba(255,99,99,0.5); padding: 2px 6px; border-radius: 3px; margin-left: 8px;">AI-generated</span>
+                    <span style="background-color: rgba(128,128,128,0.3); padding: 2px 6px; border-radius: 3px; margin-left: 8px;">Too short</span>
+                    <br><em>(Darker shade = higher confidence. Hover for details.)</em>
+                    </p>
+                    """, unsafe_allow_html=True)
+
+                    # Render highlighted text
+                    highlighted_html = render_highlighted_text(sentence_results)
+                    st.markdown(f"""
+                    <div style="background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; line-height: 1.8; margin: 10px 0;">
+                    {highlighted_html}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Summary statistics
+                    ai_sentences = [s for s in sentence_results if s['is_ai'] is True]
+                    human_sentences = [s for s in sentence_results if s['is_ai'] is False]
+                    short_sentences = [s for s in sentence_results if s['is_short']]
+
+                    st.markdown(f"""
+                    <p class='small-font'>
+                    <strong>Summary:</strong> {len(ai_sentences)} AI-detected, {len(human_sentences)} human-detected, {len(short_sentences)} too short to analyze
+                    </p>
+                    """, unsafe_allow_html=True)
+
+                    # Detailed breakdown in expander
+                    with st.expander("📋 View Sentence Details"):
+                        for i, sent in enumerate(sentence_results, 1):
+                            if sent['is_short']:
+                                icon = "⚪"
+                                label = "Too short"
+                                conf = "N/A"
+                            elif sent['is_ai']:
+                                icon = "🔴"
+                                label = "AI"
+                                conf = f"{sent['confidence']*100:.1f}%"
+                            else:
+                                icon = "🟢"
+                                label = "Human"
+                                conf = f"{sent['confidence']*100:.1f}%"
+
+                            preview = sent['text'][:100] + "..." if len(sent['text']) > 100 else sent['text']
+                            st.markdown(f"<p class='small-font'>{icon} <strong>S{i}</strong> [{label}, {conf}]: {preview}</p>", unsafe_allow_html=True)
 
         elif analyze_button and not input_text:
             st.warning("Please enter some text to analyze.")
