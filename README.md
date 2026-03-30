@@ -14,11 +14,18 @@ A web application for detecting AI-generated text using the **fakespot-ai/robert
 - **AI Detection Metrics**:
   - **Burstiness**: Measures sentence length variation (AI text tends to be more uniform)
   - **Perplexity Proxy**: Based on model prediction confidence
+- **Segment-by-Segment Analysis**: Analyzes longer texts (~200 word chunks) to identify which portions are AI vs human-written
+- **Sentence-by-Sentence Analysis**: Color-coded highlighting of individual sentences
+  - Green = Human-written, Red = AI-generated, Gray = Too short to analyze
+  - Shade intensity indicates confidence level
+- **Duplicate Detection**: Identifies exact duplicate paragraphs with color-coded highlighting
+  - Shows duplication percentage
+  - Groups identical paragraphs with matching colors
 - **Sample Texts**: Includes pre-loaded AI and human text samples for testing
 
 ## Live Demo
 
-Try the app here: [Streamlit Cloud App](https://ai-text-detection.streamlit.app) *(update with your actual URL after deployment)*
+Try the app here: [https://ai-text-detection.streamlit.app](https://ai-text-detection.streamlit.app)
 
 ## Installation
 
