@@ -54,6 +54,68 @@ Try the app here: [https://ai-text-detection-mzhao577.streamlit.app/](https://ai
    ```
    Then open `http://localhost:7860`
 
+   **Option 3: CLI Mode (CSV Output)**
+   ```bash
+   python streamlit_app_outputresults.py --output_result --input <input_file>
+   ```
+   See [CLI Usage](#cli-usage) section below for details.
+
+## CLI Usage
+
+The CLI mode allows you to analyze text files from the terminal and export results to CSV files.
+
+### Basic Usage
+
+```bash
+python streamlit_app_outputresults.py --output_result --input <input_file>
+```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--output_result` | Yes | Enable CLI mode with CSV output |
+| `--input` | Yes | Path to input text file to analyze |
+| `--output_dir` | No | Directory for output CSV files (default: same as input file) |
+| `--output_prefix` | No | Prefix for output CSV filenames (default: "analysis") |
+
+### Output Files
+
+The CLI generates three CSV files:
+
+1. **`{prefix}_paragraphs.csv`** - Paragraph-level analysis
+   - Index: `p1`, `p2`, `p3`, etc.
+   - Classification: AI-written or Human-written
+   - Confidence score and probabilities
+
+2. **`{prefix}_sentences.csv`** - Sentence-level analysis
+   - Index: `p1s1`, `p1s2`, `p2s1`, etc. (paragraph + sentence)
+   - Classification: AI-written, Human-written, or Too short
+   - Confidence score and probabilities
+
+3. **`{prefix}_duplicates.csv`** - Duplicate paragraph pairs
+   - Group number
+   - Paragraph indices and text for each duplicate pair
+
+### Examples
+
+```bash
+# Basic usage - outputs to same directory as input file
+python streamlit_app_outputresults.py --output_result --input input/sample.txt
+
+# Specify output directory
+python streamlit_app_outputresults.py --output_result --input input/sample.txt --output_dir ./output
+
+# Specify custom output prefix
+python streamlit_app_outputresults.py --output_result --input input/sample.txt --output_dir ./output --output_prefix myanalysis
+```
+
+### Sample Files
+
+The repository includes sample files for testing:
+- `input/` - Sample text files (AI-written and human-written)
+- `output/` - Example CSV output files
+
 ## Deploy to Streamlit Cloud
 
 1. Fork or push this repository to your GitHub account
